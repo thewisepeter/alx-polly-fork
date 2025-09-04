@@ -9,8 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { deletePoll } from "@/app/lib/actions/poll-actions";
-import { createClient } from "@/lib/supabase/client";
+import { deletePoll, getAdminPolls } from "@/app/lib/actions/poll-actions";
 
 interface Poll {
   id: string;
@@ -30,15 +29,12 @@ export default function AdminPage() {
   }, []);
 
   const fetchAllPolls = async () => {
-    const supabase = createClient();
-
-    const { data, error } = await supabase
-      .from("polls")
-      .select("*")
-      .order("created_at", { ascending: false });
-
+    const { polls: data, error } = await getAdminPolls();
     if (!error && data) {
       setPolls(data);
+    } else if (error) {
+      console.error("Error fetching admin polls:", error);
+      // Optionally redirect or show a specific message for unauthorized access
     }
     setLoading(false);
   };

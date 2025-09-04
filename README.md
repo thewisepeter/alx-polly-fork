@@ -94,3 +94,64 @@ npm run dev
 The application will be available at `http://localhost:3000`.
 
 Good luck, engineer! This is your chance to step into the shoes of a security professional and make a real impact on the quality and safety of this application. Happy hunting!
+
+## 🐛 Identified and Remediated Security Vulnerabilities
+
+During a comprehensive security audit of ALX Polly, several vulnerabilities were identified and subsequently remediated. This section details these issues, their potential impact, and the steps taken to secure the application.
+
+### 1. User Authentication and Authorization Vulnerabilities
+
+#### A. Exposure of Sensitive Error Messages
+
+*   **Impact:** This vulnerability could assist attackers in user enumeration, allowing them to distinguish between "email not found" and "incorrect password" errors. This information could then be used for targeted phishing or brute-force attacks on known accounts.
+*   **Remediation:** Error messages returned from authentication actions (`login`, `register`) in `app/lib/actions/auth-actions.ts` were made more generic (e.g., "Invalid credentials", "Registration failed") to prevent user enumeration.
+
+#### B. Lack of Robust Server-Side Input Validation
+
+*   **Impact:** Without strong server-side validation, users could create weak passwords, making accounts susceptible to brute-force attacks. Malicious or malformed input in email fields could also lead to injection attacks or data integrity issues.
+*   **Remediation:** Comprehensive server-side validation was implemented in `app/lib/actions/auth-actions.ts` for email format and password strength (minimum 8 characters, at least one uppercase, one lowercase, one number, and one special character).
+
+#### C. Privilege Escalation due to Missing Role-Based Access Control (RBAC)
+
+*   **Impact:** Any authenticated user could access the `/admin` page, view all polls, and delete any poll in the system, leading to unauthorized data access and manipulation.
+*   **Remediation:**
+    *   An `is_admin: false` flag was added to new users' `user_metadata` during registration in `app/lib/actions/auth-actions.ts`.
+    *   A new Server Action `getAdminPolls` was created in `app/lib/actions/poll-actions.ts` to restrict poll retrieval to administrators only.
+    *   The `app/(dashboard)/admin/page.tsx` was updated to use `getAdminPolls`, enforcing server-side access control for the admin panel.
+    *   The `deletePoll` Server Action in `app/lib/actions/poll-actions.ts` was modified to allow deletion only by the poll owner or an administrator.
+
+#### D. Inconsistent Client-Side Input Validation
+
+*   **Impact:** Lack of immediate client-side feedback for invalid inputs resulted in a poor user experience and increased unnecessary server load.
+*   **Remediation:** Client-side email and password validation mirroring the server-side rules was added to both `app/(auth)/login/page.tsx` and `app/(auth)/register/page.tsx`, providing instant user feedback.
+
+### 2. Data Access Vulnerabilities
+
+#### A. Unrestricted Access to Individual Polls via `getPollById`
+
+*   **Impact:** Any user, authenticated or not, could view the full details of any poll by simply knowing its ID, potentially leading to unauthorized data exposure.
+*   **Remediation:** The `getPollById` function in `app/lib/actions/poll-actions.ts` was updated to restrict access. Polls can now only be viewed by the poll's owner, an administrator, or any user (even unauthenticated) if the poll is explicitly marked as `is_public`.
+
+#### B. Unauthenticated Voting via `submitVote`
+
+*   **Impact:** While anonymous voting was a design choice, it could potentially lead to vote manipulation or spamming if not properly managed.
+*   **Remediation:** A clear comment was added to the `submitVote` function in `app/lib/actions/poll-actions.ts` to document this design decision and highlight the potential need for anti-spam measures like IP-based rate limiting.
+
+### 3. Business Logic Vulnerabilities
+
+#### A. Poll Creation and Update (XSS & Input Limits)
+
+*   **Impact:** The `question` and `options` fields were vulnerable to Cross-Site Scripting (XSS) attacks due to a lack of sanitization. Additionally, the absence of input length limits could lead to database integrity issues or denial-of-service by storing excessively long data.
+*   **Remediation:**
+    *   The `dompurify` library was installed and used to sanitize all user-provided input for `question` and `options` in both `createPoll` and `updatePoll` Server Actions (in `app/lib/actions/poll-actions.ts`).
+    *   Server-side input limits were implemented in `app/lib/actions/poll-actions.ts`: maximum length for `question` (255 characters), maximum length for each `option` (100 characters), and a maximum of 10 options per poll.
+
+#### B. Multiple Voting by Authenticated Users
+
+*   **Impact:** Authenticated users could vote multiple times on the same poll, potentially skewing poll results and undermining data integrity.
+*   **Remediation:** A server-side check was added to the `submitVote` function (in `app/lib/actions/poll-actions.ts`) to prevent authenticated users from casting more than one vote per poll.
+
+#### C. Tabnabbing in Social Sharing
+
+*   **Impact:** The social sharing links in `app/(dashboard)/polls/vulnerable-share.tsx` were susceptible to a "tabnabbing" attack, where a malicious page opened in a new tab could hijack the original page.
+*   **Remediation:** The `window.open` calls for Twitter and Facebook sharing in `app/(dashboard)/polls/vulnerable-share.tsx` were updated to include `"noopener,noreferrer"` as the third argument, mitigating the tabnabbing vulnerability.

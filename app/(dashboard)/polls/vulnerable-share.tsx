@@ -46,6 +46,7 @@ export default function VulnerableShare({
     window.open(
       `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
       "_blank",
+      "noopener,noreferrer"
     );
   };
 
@@ -54,6 +55,7 @@ export default function VulnerableShare({
     window.open(
       `https://www.facebook.com/sharer/sharer.php?u=${url}`,
       "_blank",
+      "noopener,noreferrer"
     );
   };
 
